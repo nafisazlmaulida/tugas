@@ -1,0 +1,162 @@
+---
+title: "Tugas Kuliah Analisis Regresi Pertemuan 7"
+author: "Nafisa Zalfa Maulida - G1401221092"
+date: "2024-03-06"
+output:
+  pdf_document: default
+  html_document: default
+---
+##Data
+```{r}
+library(readxl)
+data<-read_excel("D:/SEMESTER 4/Analisis Regresi/Pertemuan 7/Data Anreg Kuliah Pertemuan 7.xlsx")
+data
+```
+
+
+```{r}
+library(tidyverse)
+library(ggridges)
+library(GGally)
+library(plotly)
+library(dplyr)
+library(lmtest)
+library(stats)
+```
+
+##Model Regresi Awal
+```{r}
+model_lm = lm(formula = Y ~ X, data = data)
+summary(model_lm)
+```
+Model Regresi:
+$$\hat Y = 46.46041 - 0.75251X +e$$
+Karena belum melalui serangkaian uji asumsi, maka diperlukan eksplorasi kondisi, pengujian asumsi Gauss-Markov, dan normalitas untuk menghasilkan model terbaik.
+
+##Eksplorasi Data
+#Plot Hubungan X dan Y
+```{r}
+plot(x = data$X, y = data$Y)
+```
+
+Berdasarkan scatter plot di atas, dapat diketahui bahwa X dan Y tidak mempunyai hubungan linear karena cenderung membentuk pola parabola.
+
+
+
+
+##Plot Sisaan vs Urutan
+```{r}
+ plot(x = 1:dim(data)[1],
+ y = model_lm$residuals,
+ type = 'b',
+ ylab = "Residuals",
+ xlab = "Observation")
+```
+Sebaran tersebut membentuk pola kurva menandakan sisaan tidak saling bebas.
+
+
+##Uji Normalitas
+```{r}
+qqnorm(data$Y)
+qqline(data$Y, col = "blue")
+shapiro.test(data$Y)
+```
+
+QQ Plot cenderung menunjukkan bahwa data yang digunakan menyebar normal. Hal tersebut juga didukung dengan hasil Shapiro Test yang besarnya lebih dari 0.05, yaitu 0.89636.
+
+
+##Uji Autokorelasi
+```{r}
+acf(model_lm$residuals)
+```
+```{r}
+dwtest(model_lm)
+```
+
+Nilai autokorelasi pada lag 1 dan lag 2 berada di luar batas kepercayaan 95%, yaitu pada lag 1 = 0,5 dan pada lag 2 = 0.4. Hal tersebut menunjukkan bahwa autokorelasi pada lag 1 dan 2 adalah signifikan. 
+
+Oleh karena itu, asumsi Gauss-Markov tidak terpenuhi (asumsi non-autokorelasi). Hal tersebut pun diperkuat dengan p-test pada uji Durbin-Watson bernilai kurang dari 0.05.
+
+
+##Uji Homoskedastisitas
+```{r}
+plot(model_lm, which = 1)
+```
+
+Grafik tersebut menunjukkan bahwa varians residual konstan. Varian residual cenderung meningkat seiring dengan nilai prediksi. Hal tersebut akan mengindikasi bahwa homoskedastisitas terjadi.
+
+
+##Transformasi
+
+##WLS
+```{r}
+resid_abs <- abs(model_lm$residuals)
+fitted_val <- model_lm$fitted.values
+fit <- lm(resid_abs ~ fitted_val, data)
+data.weights <- 1 / fit$fitted.values^2
+data.weights
+```
+
+##Hasil model regresi yang terboboti:
+```{r}
+model_weighted <- lm(Y~X, data = data, weights = data.weights)
+plot(model_weighted)
+```
+```{r}
+summary(model_weighted)
+```
+
+Berdasarkan hasil transformasi WLS, dapat diketahui bahwa WLS belum cukup efektif untuk mentransformasi model regresi. Hal itu dapat dibuktikan dari hasil eksplorasi yang masih belum memenuhi asumsi Gauss-Markov.
+
+
+##Transformasi Akar: pada x,y atau X dan Y
+```{r}
+newdata <- data %>%
+  mutate(y = sqrt(Y)) %>%
+  mutate(x = sqrt(X))
+
+model_sqrtx <- lm(y ~ X, data = newdata)
+plot(x = newdata$X, y = newdata$y)
+```
+```{r}
+plot(model_sqrtx)
+```
+```{r}
+summary(model_sqrtx)
+```
+
+
+##Uji Autokorelasi Model Regresi Transformasi
+```{r}
+dwtest(model_sqrtx)
+```
+Nilai DW yang rendah dan p-value yang signifikan menunjukkan ada autokorelasi positif pada Durbin Watson. Selain itu, dibuktikan dengan p-value yang bernilai kurang dari 0.05.
+
+```{r}
+model_sqrt <- lm(y ~ x, data = newdata)
+plot(x = newdata$x, y = newdata$y)
+```
+```{r}
+plot(model_sqrt)
+```
+```{r}
+summary(model_sqrt)
+```
+
+
+##Uji Autokorelasi Model Regresi
+```{r}
+dwtest(model_sqrt)
+```
+
+P-value lebih besar dari 0.05, yaitu 0.8629 menunjukkan bahwa tidak ada cukup bukti untuk menolak H0. Dimana H0 adalah tidak ada autokorelasi.
+
+Dari hasil transformasi, dapat disimpulkan jika transformasi akar Y membuat persamaan regresi jadi lebih efektif dengan model regresi menjadi:
+$$Y^* = 8.71245 - 0.81339X^* + e$$
+$$Y^* = \sqrt Y$$ 
+$$X^* = \sqrt X$$
+#Dilakukan Transformasi Balik Menjadi:
+$$\hat Y=(8.71245-0.81339X^\frac12)^2 + e$$
+#Interpretasi
+Model tersebut mengindikasi bahwa adanya hubungan berbanding terbalik (kuadrat negatif) antara Y dengan X. Saat X meningkat, Y akan cenderung turun dengan kecepatan yang semakin cepat. 
+Nilai konstanta 8.71245 mewakili nilai Y ketika X=0. Koefisien regresi untuk variabel X adalah -0.81339. Semakin besar nilai absolut koefisien, semakin besar pengaruh X terhadap Y.
